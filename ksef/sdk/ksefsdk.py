@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 import base64
 import datetime
 import calendar
+from time import sleep
 
 
 def _encrypt_token(kseftoken: str, timestamp: str, public_certificate: str) -> str:
@@ -30,6 +31,8 @@ class KSEFSDK:
     _token = "20251108-EC-24C7EAF000-FC42E257A6-41|nip-7497725064|fad169115b1e482cb4ff38718d1d676dfa1f819060df4752b534391ea4a0d594"
     _nip = "7497725064"
 
+    _SESSIONT = 5
+
     def __init__(self):
         self._challenge, self._timestamp = self._get_challengeandtimestamp()
         self._public_certificate = self._get_public_certificate()
@@ -52,10 +55,17 @@ class KSEFSDK:
     def _construct_url(self, endpoint: str) -> str:
         return f"{self._base_url}{endpoint}"
 
-    def _hook(self, endpoint: str, post: bool = True, body: dict = None) -> dict:
+    def _hook(self, endpoint: str, post: bool = True, body: dict = None, withbearer: bool = False) -> dict:
+        if withbearer:
+            headers = {
+                "Authorization": f"Bearer {self._authenticationtoken}"
+            }
+        else:
+            headers = {}
+
         url = self._construct_url(endpoint=endpoint)
         response = requests.post(
-            url, json=body or {}) if post else requests.get(url)
+            url, json=body or {}, headers=headers) if post else requests.get(url, headers=headers)
         response.raise_for_status()
         return response.json()
 
@@ -82,7 +92,15 @@ class KSEFSDK:
         token = response["authenticationToken"]["token"]
         return referenceNumber, token
 
-    def _session_status(self) -> str:
+    def _session_status(self) -> None:
         url = f"auth/{self._referencenumber}"
-        response = self._hook(url, post=False)
-        return response["status"]
+        for _ in range(self._SESSIONT):
+            response = self._hook(url, post=False, withbearer=True)
+            status = response["status"]["code"]
+            description = response["status"]["description"]
+            if status == 100:
+                sleep(5)
+            else:
+                raise ValueError(f"Session activation failed: {status} - {description}")
+
+        raise TimeoutError("Session activation timed out.")
