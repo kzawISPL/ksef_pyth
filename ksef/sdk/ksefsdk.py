@@ -1,12 +1,17 @@
 import requests
 from time import sleep
-from .encrypt import encrypt_token
+from .encrypt import (
+    encrypt_token, get_key_and_iv,
+    encrypt_symmetric_key, to_base64
+)
 
 
 class KSEFSDK:
 
     _base_url = "https://ksef-test.mf.gov.pl/api/v2/"
-    _token = "20251108-EC-24C7EAF000-FC42E257A6-41|nip-7497725064|fad169115b1e482cb4ff38718d1d676dfa1f819060df4752b534391ea4a0d594"
+    #_token = "20251108-EC-24C7EAF000-FC42E257A6-41|nip-7497725064|fad169115b1e482cb4ff38718d1d676dfa1f819060df4752b534391ea4a0d594"
+    _token = "20251116-EC-0317C65000-2CA83C40D9-73|nip-7497725064|80be6cfced7f44eb860aeeb644e8cffdd59bbad9e218415296db90a39e6e5370"
+    #_token = "XXXXXX"
     _nip = "7497725064"
 
     _SESSIONT = 5
@@ -20,7 +25,8 @@ class KSEFSDK:
             public_certificate=self._public_certificate
         )
         self._referencenumber, self._authenticationtoken = self._auth_ksef_token()
-        self._session_status()
+        # self._session_status()
+        self._symmetric_key, self._iv = get_key_and_iv()
 
     @property
     def challenge(self) -> str:
@@ -94,6 +100,28 @@ class KSEFSDK:
         raise TimeoutError("Session activation timed out.")
 
     def session_terminate(self) -> None:
+        # TODO: Do not use
+        # TODO: not working?
         url = f"auth/sessions/{self._referencenumber}"
-        #url = "auth/sessions/current"
+        # url = "auth/sessions/current"
         self._hook(url, post=False, dele=True, withbearer=True)
+
+    def start_session(self):
+        encrypted_symmetric_key = encrypt_symmetric_key(
+            symmetricy_key=self._symmetric_key,
+            public_certificate=self._public_certificate
+        )
+        request_data = {
+            "formCode": {
+                "systemCode": "FA (3)",
+                "schemaVersion": "1-0E",
+                "value": "FA"
+            },
+            "encryption": {
+                "encryptedSymmetricKey": to_base64(encrypted_symmetric_key),
+                "initializationVector": to_base64(self._iv)
+            },
+        }
+        response = self._hook(endpoint="sessions/online",
+                              body=request_data, withbearer=True, post = False)
+        print(response)
