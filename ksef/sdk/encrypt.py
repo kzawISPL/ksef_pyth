@@ -1,10 +1,18 @@
-from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
 import base64
 import datetime
 import calendar
 import os
+import hashlib
+
+from cryptography import x509
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+
+def _encode(s: str) -> bytes:
+    return s.encode('utf-8')
 
 
 def _public_key(public_certificate: str):
@@ -32,7 +40,7 @@ def encrypt_token(kseftoken: str, timestamp: str, public_certificate: str) -> st
             label=None
         )
     )
-    #return base64.b64encode(encrypted).decode("utf-8")
+    # return base64.b64encode(encrypted).decode("utf-8")
     return to_base64(encrypted)
 
 
@@ -57,3 +65,26 @@ def encrypt_symmetric_key(symmetricy_key: bytes, public_certificate: str) -> byt
         ),
     )
     return encrypted_symmetric_key
+
+
+def encrypt_invoice(symmetric_key: bytes, iv: bytes, public_certificate: str, invoice: str) -> bytes:
+    invoice_bytes = _encode(invoice)
+    cipher = Cipher(
+        algorithms.AES(symmetric_key),
+        modes.CBC(iv),
+        backend=default_backend()
+    )
+    encryptor = cipher.encryptor()
+    pad = len(invoice_bytes) % 16
+    if pad:
+        padding_length = 16 - pad
+        invoice_bytes += bytes([padding_length] * padding_length)
+
+    encrypted_invoice = encryptor.update(invoice_bytes) + encryptor.finalize()
+    return encrypted_invoice
+
+
+def calculate_hash(data: bytes | str) -> str:
+    if isinstance(data, str):
+        data = _encode(data)
+    return base64.b64encode(hashlib.sha256(data).digest()).decode()
