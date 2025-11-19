@@ -18,9 +18,7 @@ def _encode(s: str) -> bytes:
 def _public_key(public_certificate: str):
     crt = f'-----BEGIN CERTIFICATE-----\n{public_certificate}\n-----END CERTIFICATE-----'
 
-    certificate = x509.load_pem_x509_certificate(
-        crt.encode("utf-8")
-    )
+    certificate = x509.load_pem_x509_certificate(_encode(crt))
     public_key = certificate.public_key()
     return public_key
 
@@ -30,7 +28,7 @@ def encrypt_token(kseftoken: str, timestamp: str, public_certificate: str) -> st
 
     t = datetime.datetime.fromisoformat(timestamp)
     t = int((calendar.timegm(t.timetuple()) * 1000) + (t.microsecond / 1000))
-    token_bytes = f"{kseftoken}|{t}".encode('utf-8')
+    token_bytes = _encode(f"{kseftoken}|{t}")
 
     encrypted = public_key.encrypt(
         token_bytes,
@@ -40,7 +38,6 @@ def encrypt_token(kseftoken: str, timestamp: str, public_certificate: str) -> st
             label=None
         )
     )
-    # return base64.b64encode(encrypted).decode("utf-8")
     return to_base64(encrypted)
 
 
@@ -67,7 +64,13 @@ def encrypt_symmetric_key(symmetricy_key: bytes, public_certificate: str) -> byt
     return encrypted_symmetric_key
 
 
-def encrypt_invoice(symmetric_key: bytes, iv: bytes, public_certificate: str, invoice: str) -> bytes:
+def _pad(data: bytes) -> bytes:
+    padding_length = 16 - len(data) % 16
+    padding = bytes([padding_length] * padding_length)
+    return data + padding
+
+
+def encrypt_invoice(symmetric_key: bytes, iv: bytes, invoice: str) -> tuple[int, bytes]:
     invoice_bytes = _encode(invoice)
     cipher = Cipher(
         algorithms.AES(symmetric_key),
@@ -75,13 +78,9 @@ def encrypt_invoice(symmetric_key: bytes, iv: bytes, public_certificate: str, in
         backend=default_backend()
     )
     encryptor = cipher.encryptor()
-    pad = len(invoice_bytes) % 16
-    if pad:
-        padding_length = 16 - pad
-        invoice_bytes += bytes([padding_length] * padding_length)
-
-    encrypted_invoice = encryptor.update(invoice_bytes) + encryptor.finalize()
-    return encrypted_invoice
+    padded_invoice = _pad(invoice_bytes)
+    encrypted_invoice = encryptor.update(padded_invoice) + encryptor.finalize()
+    return len(invoice_bytes), encrypted_invoice
 
 
 def calculate_hash(data: bytes | str) -> str:

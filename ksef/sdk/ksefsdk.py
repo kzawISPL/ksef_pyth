@@ -10,17 +10,43 @@ from .encrypt import (
 )
 
 
+def _getlogger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    logFormatter = logging.Formatter("%(asctime)s %(message)s")
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setFormatter(logFormatter)
+    logger.addHandler(consoleHandler)
+    return logger
+
+
+_logger = _getlogger()
+
+
+def _l(info: str):
+    _logger.info(info)
+
+
 class KSEFSDK:
 
-    _base_url = "https://ksef-test.mf.gov.pl/api/v2/"
-    # _token = "20251108-EC-24C7EAF000-FC42E257A6-41|nip-7497725064|fad169115b1e482cb4ff38718d1d676dfa1f819060df4752b534391ea4a0d594"
-    _token = "20251116-EC-0317C65000-2CA83C40D9-73|nip-7497725064|80be6cfced7f44eb860aeeb644e8cffdd59bbad9e218415296db90a39e6e5370"
-    _nip = "7497725064"
+    DEVKSEF = 0
+
+    _TEST_DEV_KSEF_URL = "https://ksef-test.mf.gov.pl/api/v2/"
+
+    @classmethod
+    def initsdk(cls, what: int, nip: str, token: str):
+        if what != cls.DEVKSEF:
+            raise ValueError(
+                "Niepoprawne środowisko, parametr what niepoprawny")
+        return cls(url=cls._TEST_DEV_KSEF_URL, nip=nip, token=token)
 
     _SESSIONT = 5
     _INVOICET = 10
 
-    def __init__(self):
+    def __init__(self, url: str, nip: str, token: str):
+        self._base_url = url
+        self._nip = nip
+        self._token = token
         self._challenge, self._timestamp = self._get_challengeandtimestamp()
         self._kseftoken_certificate, self._symmetrickey_certificate = self._get_public_certificate()
         self._encrypted_token = encrypt_token(
@@ -35,19 +61,11 @@ class KSEFSDK:
         self._sessionreferencenumber = ''
         self._sessioninvoicereferencenumber = ''
 
-    @property
-    def challenge(self) -> str:
-        return self._challenge
-
-    @property
-    def timestamp(self) -> str:
-        return self._timestamp
-
     def _construct_url(self, endpoint: str) -> str:
         return f"{self._base_url}{endpoint}"
 
     def _hook(self, endpoint: str, post: bool = True, dele: bool = False,
-              body: dict = None, withbearer: bool = False, withbeareraccess: bool = False) -> dict:
+              body: dict | None = None, withbearer: bool = False, withbeareraccess: bool = False) -> dict:
         if withbearer or withbeareraccess:
             headers = {
                 "Authorization": f"Bearer {self._access_token if withbeareraccess else self._authenticationtoken}"
@@ -56,7 +74,7 @@ class KSEFSDK:
             headers = {}
 
         url = self._construct_url(endpoint=endpoint)
-        logging.info(url)
+        _l(url)
         if dele:
             response = requests.delete(url, headers=headers)
         elif post:
@@ -150,26 +168,39 @@ class KSEFSDK:
     def _invoice_status(self) -> tuple[bool, str, str]:
         end_point = f'sessions/{self._sessionreferencenumber}/invoices/{self._sessioninvoicereferencenumber}'
         sleep_time = 2
-        for _ in range(self._INVOICET):
+        for no in range(self._INVOICET):
             response = self._hook(endpoint=end_point,
                                   post=False, withbeareraccess=True)
-            print(response)
             code = response["status"]["code"]
+            # stworz komunikat
+            description = response["status"]["description"]
+            details = response["status"].get("details")
+            if isinstance(details, list):
+                description += (" " + " ".join(details))
+
+            # czy w trakcie przetwarzania
             if code == 100 or code == 150:
+                _l(description)
+                _l(f"Próba {no+1}, max {self._INVOICET}, czekam {sleep_time} sekund")
                 sleep(sleep_time)
                 sleep_time += 2
+                # spróbuj jeszcze raz
                 continue
-            return code == 200, response["status"]["description"], response["ksefNumber"] if code == 200 else ""
+            # albo jest poprawnie albo błąd
+            if code == 200:
+                return True, description, response["ksefNumber"]
+            return False, description, ""
+
         return False, "Przekroczona liczba prób przetwarzania", ""
 
     def send_invoice(self, invoice: str) -> tuple[bool, str, str]:
-        encrypted_invoice = encrypt_invoice(
-            symmetric_key=self._symmetric_key, iv=self._iv, public_certificate=None, invoice=invoice)
+        invoice_len, encrypted_invoice = encrypt_invoice(
+            symmetric_key=self._symmetric_key, iv=self._iv, invoice=invoice)
         invoice_hash = calculate_hash(invoice)
         encrypted_invoice_hash = calculate_hash(encrypted_invoice)
         request_data = {
             "invoiceHash": invoice_hash,
-            "invoiceSize": len(invoice),
+            "invoiceSize": invoice_len,
             "encryptedInvoiceHash": encrypted_invoice_hash,
             "encryptedInvoiceSize": len(encrypted_invoice),
             "encryptedInvoiceContent": to_base64(encrypted_invoice),
