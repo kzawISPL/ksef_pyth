@@ -55,5 +55,5 @@ def test3():
 
 if __name__ == "__main__":
     # test2()
-    # test1()
-    test3()
+    test1()
+    # test3()

@@ -15,6 +15,10 @@ def _encode(s: str) -> bytes:
     return s.encode('utf-8')
 
 
+def to_base64(b: bytes) -> str:
+    return base64.b64encode(b).decode()
+
+
 def _public_key(public_certificate: str):
     crt = f'-----BEGIN CERTIFICATE-----\n{public_certificate}\n-----END CERTIFICATE-----'
 
@@ -23,26 +27,26 @@ def _public_key(public_certificate: str):
     return public_key
 
 
-def encrypt_token(kseftoken: str, timestamp: str, public_certificate: str) -> str:
+def _encrypt_public_key(public_certificate: str, to_encrypt: bytes) -> bytes:
     public_key = _public_key(public_certificate)
-
-    t = datetime.datetime.fromisoformat(timestamp)
-    t = int((calendar.timegm(t.timetuple()) * 1000) + (t.microsecond / 1000))
-    token_bytes = _encode(f"{kseftoken}|{t}")
-
     encrypted = public_key.encrypt(
-        token_bytes,
+        to_encrypt,
         padding.OAEP(
             mgf=padding.MGF1(algorithm=hashes.SHA256()),
             algorithm=hashes.SHA256(),
             label=None
         )
     )
+    return encrypted
+
+
+def encrypt_token(kseftoken: str, timestamp: str, public_certificate: str) -> str:
+    t = datetime.datetime.fromisoformat(timestamp)
+    t = int((calendar.timegm(t.timetuple()) * 1000) + (t.microsecond / 1000))
+    token_bytes = _encode(f"{kseftoken}|{t}")
+    encrypted = _encrypt_public_key(
+        public_certificate=public_certificate, to_encrypt=token_bytes)
     return to_base64(encrypted)
-
-
-def to_base64(b: bytes) -> str:
-    return base64.b64encode(b).decode()
 
 
 def get_key_and_iv() -> tuple[bytes, bytes]:
@@ -52,15 +56,8 @@ def get_key_and_iv() -> tuple[bytes, bytes]:
 
 
 def encrypt_symmetric_key(symmetricy_key: bytes, public_certificate: str) -> bytes:
-    public_key = _public_key(public_certificate)
-    encrypted_symmetric_key = public_key.encrypt(
-        symmetricy_key,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-        ),
-    )
+    encrypted_symmetric_key = _encrypt_public_key(
+        public_certificate=public_certificate, to_encrypt=symmetricy_key)
     return encrypted_symmetric_key
 
 

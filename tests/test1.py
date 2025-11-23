@@ -48,7 +48,7 @@ class TestKsef(unittest.TestCase):
             KONWDOKUMENT.NUMER_FAKTURY: T.gen_numer_faktry()
         }
         KONWDOKUMENT.konwertuj(sou=inpath, dest=outpath, zmienne=zmienne)
-        # odczytaj skonwertownay plik
+        # odczytaj skonwertowany plik
         with open(outpath, "r") as f:
             invoice = f.read()
         self.assertIn(T.NIP, invoice)
