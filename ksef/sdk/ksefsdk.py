@@ -30,15 +30,29 @@ def _l(info: str):
 class KSEFSDK:
 
     DEVKSEF = 0
+    PREKSEF = 1
+    PRODKSEF = 2
 
-    _TEST_DEV_KSEF_URL = "https://ksef-test.mf.gov.pl/api/v2/"
+    _METHODPOST = 0
+    _METHODDEL = 1
+    _METHODGET = 2
+
+    _NOBEARER = 0
+    _BEARERTOKEN = 1
+    _BEARERACCESS = 2
+
+    _env_dict = {
+        DEVKSEF: "https://ksef-test.mf.gov.pl/api/v2/",
+        PREKSEF: "https://ksef-demo.mf.gov.pl/api/v2",
+        PRODKSEF: "https://ksef.mf.gov.pl/api/v2"
+    }
 
     @classmethod
-    def initsdk(cls, what: int, nip: str, token: str):
-        if what != cls.DEVKSEF:
+    def initsdk(cls, env: int, nip: str, token: str):
+        if env not in KSEFSDK._env_dict:
             raise ValueError(
-                "Niepoprawne środowisko, parametr what niepoprawny")
-        return cls(url=cls._TEST_DEV_KSEF_URL, nip=nip, token=token)
+                "Niepoprawne środowisko, parametr env musi mieć wartość DEVKSEF, PREKSEF lub PRODKSEF")
+        return cls(url=KSEFSDK._env_dict[env], nip=nip, token=token)
 
     _SESSIONT = 5
     _INVOICET = 10
@@ -60,39 +74,44 @@ class KSEFSDK:
         self._symmetric_key, self._iv = get_key_and_iv()
         self._sessionreferencenumber = ''
         self._sessioninvoicereferencenumber = ''
+        self._invoicereferencenumber = ''
 
     def _construct_url(self, endpoint: str) -> str:
         return f"{self._base_url}{endpoint}"
 
-    def _hook(self, endpoint: str, post: bool = True, dele: bool = False,
-              body: dict | None = None, withbearer: bool = False, withbeareraccess: bool = False) -> dict:
-        if withbearer or withbeareraccess:
+    def _hook_response(self, endpoint: str, method: int = _METHODPOST, body: dict | None = None, bearer=_BEARERACCESS) -> requests.Response:
+        if bearer != self._NOBEARER:
             headers = {
-                "Authorization": f"Bearer {self._access_token if withbeareraccess else self._authenticationtoken}"
+                "Authorization": f"Bearer {self._access_token if bearer == self._BEARERACCESS else self._authenticationtoken}"
             }
         else:
             headers = {}
 
         url = self._construct_url(endpoint=endpoint)
         _l(url)
-        if dele:
+        if method == self._METHODDEL:
             response = requests.delete(url, headers=headers)
-        elif post:
+        elif method == self._METHODPOST:
             response = requests.post(url, json=body or {}, headers=headers)
         else:
             response = requests.get(url, headers=headers)
 
         response.raise_for_status()
+        return response
 
+    def _hook(self, endpoint: str, method: int = _METHODPOST, body: dict | None = None, bearer: int = _BEARERACCESS) -> dict:
+
+        response = self._hook_response(
+            endpoint=endpoint, method=method, body=body, bearer=bearer)
         return response.json() if response.status_code != 204 else {}
 
     def _get_challengeandtimestamp(self) -> tuple[str, str]:
-        response = self._hook("auth/challenge")
+        response = self._hook("auth/challenge", bearer=self._NOBEARER)
         return response["challenge"], response["timestamp"]
 
     def _get_public_certificate(self) -> tuple[str, str]:
         response = self._hook(
-            "security/public-key-certificates", post=False)
+            "security/public-key-certificates", method=self._METHODGET, bearer=self._NOBEARER)
         kseftoken_certificate = next(
             e['certificate'] for e in response if 'KsefTokenEncryption' in e['usage'])
         symmetrickey_certificate = next(
@@ -109,7 +128,7 @@ class KSEFSDK:
             "challenge": self._challenge,
             "encryptedToken": self._encrypted_token
         }
-        response = self._hook("auth/ksef-token", body=body)
+        response = self._hook("auth/ksef-token", body=body, bearer=self._NOBEARER)
         referenceNumber = response["referenceNumber"]
         token = response["authenticationToken"]["token"]
         return referenceNumber, token
@@ -117,7 +136,8 @@ class KSEFSDK:
     def _session_status(self) -> None:
         url = f"auth/{self._referencenumber}"
         for _ in range(self._SESSIONT):
-            response = self._hook(url, post=False, withbearer=True)
+            response = self._hook(
+                url, method=self._METHODGET, bearer=self._BEARERTOKEN)
             status = response["status"]["code"]
             description = response["status"]["description"]
             if status == 100:
@@ -131,19 +151,18 @@ class KSEFSDK:
         raise TimeoutError("Session activation timed out.")
 
     def _redeem_token(self) -> tuple[str, str]:
-        response = self._hook(endpoint="auth/token/redeem", withbearer=True)
+        response = self._hook(endpoint="auth/token/redeem",bearer=self._BEARERTOKEN)
         access_token = response["accessToken"]["token"]
         refresh_token = response["refreshToken"]["token"]
         return access_token, refresh_token
 
     def session_terminate(self) -> None:
         url = f"auth/sessions/{self._referencenumber}"
-        self._hook(url, post=False, dele=True,
-                   withbearer=True, withbeareraccess=True)
+        self._hook(url, method=self._METHODDEL)
 
     def close_session(self) -> None:
         url = f"sessions/online/{self._sessionreferencenumber}/close"
-        self._hook(url, withbeareraccess=True)
+        self._hook(url)
 
     def start_session(self) -> None:
         encrypted_symmetric_key = encrypt_symmetric_key(
@@ -161,16 +180,14 @@ class KSEFSDK:
                 "initializationVector": to_base64(self._iv)
             },
         }
-        response = self._hook(endpoint="sessions/online",
-                              body=request_data, withbeareraccess=True)
+        response = self._hook(endpoint="sessions/online", body=request_data)
         self._sessionreferencenumber = response["referenceNumber"]
 
     def _invoice_status(self) -> tuple[bool, str, str]:
         end_point = f'sessions/{self._sessionreferencenumber}/invoices/{self._sessioninvoicereferencenumber}'
         sleep_time = 2
         for no in range(self._INVOICET):
-            response = self._hook(endpoint=end_point,
-                                  post=False, withbeareraccess=True)
+            response = self._hook(endpoint=end_point, method=self._METHODGET)
             code = response["status"]["code"]
             # stworz komunikat
             description = response["status"]["description"]
@@ -188,6 +205,7 @@ class KSEFSDK:
                 continue
             # albo jest poprawnie albo błąd
             if code == 200:
+                self._invoicereferencenumber = response["referenceNumber"]
                 return True, description, response["ksefNumber"]
             return False, description, ""
 
@@ -207,7 +225,11 @@ class KSEFSDK:
             "offlineMode": False,
         }
         end_point = f"sessions/online/{self._sessionreferencenumber}/invoices"
-        response = self._hook(endpoint=end_point,
-                              body=request_data, withbeareraccess=True)
+        response = self._hook(endpoint=end_point, body=request_data)
         self._sessioninvoicereferencenumber = response["referenceNumber"]
         return self._invoice_status()
+
+    def pobierz_ufo(self) -> str:
+        end_point = f"sessions/{self._sessionreferencenumber}/invoices/{self._invoicereferencenumber}/upo"
+        response = self._hook_response(endpoint=end_point, method=self._METHODGET)
+        return response.text

@@ -4,4 +4,3 @@
 *.pyc
 ksef/worktemp/
 tests/worktemp/
-tests/worktemp/faktura.xml

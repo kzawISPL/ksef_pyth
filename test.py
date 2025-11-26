@@ -1,3 +1,4 @@
+from typing import Callable
 from ksef import KSEFSDK
 from ksef import KONWDOKUMENT
 from tests import test_mix as T
@@ -20,13 +21,14 @@ def gen_numer_faktry():
 
 
 def test1():
+    # PRZYKLAD 1: Otworz sesję i zamknij sesję
     K = KS()
     K.start_session()
     K.close_session()
     K.session_terminate()
 
 
-def _send_invoice(path):
+def _send_invoice(path, action: Callable | None = None):
     print(path)
     with open(path, "r") as f:
         invoice = f.read()
@@ -34,12 +36,15 @@ def _send_invoice(path):
     K.start_session()
     status = K.send_invoice(invoice=invoice)
     print(status)
+    if action is not None:
+        action(K, status)
     K.close_session()
     K.session_terminate()
     return status
 
 
 def test2():
+    # PRZYKLAD 2: wyślij niepoprawną fakture do KSEF
     path = T.testdatadir("FA_3_Przykład_9.xml")
     _send_invoice(path)
 
@@ -62,13 +67,30 @@ def test3():
 
 
 def test4():
+    # PRZYKŁAD 4: wyślij poprawną fakturę do KSEF
     outpath = _prepare_invoice()
     status = _send_invoice(path=outpath)
     print(status)
 
 
+def test5():
+    # PRZYKŁAD 5: wyslij poprawną fakturę do KSEF i pobierz UPO
+    outpath = _prepare_invoice()
+
+    def wez_upo(K: KSEFSDK, status):
+        ok, _, numer_ksef = status
+        assert ok
+        print("Pobierz UPO dla wysłanej faktury")
+        upo = K.pobierz_ufo()
+        print(upo)
+
+    status = _send_invoice(path=outpath, action=wez_upo)
+    print(status)
+
+
 if __name__ == "__main__":
     # test2()
-    # test1()
+    test1()
     # test3()
-    test4()
+    # test4()
+    #test5()

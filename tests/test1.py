@@ -1,7 +1,9 @@
+from typing import Callable
 import unittest
 
 from ksef import KONWDOKUMENT
 from tests import test_mix as T
+import xml.etree.ElementTree as et
 
 
 class TestKsef(unittest.TestCase):
@@ -26,10 +28,12 @@ class TestKsef(unittest.TestCase):
         self.assertIn(T.NIP_NABYWCA, invoice)
         return invoice
 
-    def _wyslij_ksef(self, invoice: str) -> tuple[bool, str, str]:
+    def _wyslij_ksef(self, invoice: str, action: Callable | None = None) -> tuple[bool, str, str]:
         self.ksef.start_session()
         status = self.ksef.send_invoice(invoice=invoice)
         print(status)
+        if action is not None:
+            action()
         self.ksef.close_session()
         return status
 
@@ -75,6 +79,22 @@ class TestKsef(unittest.TestCase):
         invoice = self._prepare_invoice()
         status = self._wyslij_ksef(invoice=invoice)
         print(status)
+        ok, description, numerksef = status
+        self.assertTrue(ok)
+        self.assertEqual("Sukces", description)
+        self.assertNotEqual("", numerksef)
+
+    def test_wyslij_do_ksef_i_wez_upo(self):
+
+        def wez_upo():
+            upo = self.ksef.pobierz_ufo()
+            print(upo)
+            # sprawdz, czy plik xml
+            # wyrzuci błąd, jeśli nie jest poprawny xml
+            tree = et.fromstring(upo)
+
+        invoice = self._prepare_invoice()
+        status = self._wyslij_ksef(invoice=invoice, action=wez_upo)
         ok, description, numerksef = status
         self.assertTrue(ok)
         self.assertEqual("Sukces", description)
