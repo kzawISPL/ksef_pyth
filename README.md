@@ -37,3 +37,8 @@ Należy zalogować się do aplikacji testowy za pomocą fikcyjnego NIP i w zakł
 
 # Zaimplementowane funkcjonalności
 
+| Funkcjonalność | API link | Endpoint | Metoda w klasie KSEFSDK
+| -- | -- | -- | -- |
+| Inicjalizacja uwierzytelnienia | [link](https://ksef-test.mf.gov.pl/docs/v2/index.html#tag/Uzyskiwanie-dostepu/paths/~1api~1v2~1auth~1challenge/post) | /api/v2/auth/challenge | Konstruktor KSEFSDK
+| Pobranie certyfikatów | [link](https://ksef-test.mf.gov.pl/docs/v2/index.html#tag/Certyfikaty-klucza-publicznego/paths/~1api~1v2~1security~1public-key-certificates/get) | api/v2/security/public-key-certificates | Konstruktor
+| Uwierzytelnienie z wykorzystaniem tokena KSeF | [link](https://ksef-test.mf.gov.pl/docs/v2/index.html#tag/Uzyskiwanie-dostepu/paths/~1api~1v2~1auth~1ksef-token/post) | /api/v2/auth/ksef-token | Konstruktor 
