@@ -33,6 +33,7 @@ Należy zalogować się do aplikacji testowy za pomocą fikcyjnego NIP i w zakł
   * encrypt.py Pomocniczy moduł do szyfrowania i deszyfrowania danych. Wykorzystywany wewnętrznie przez ksefsdk.py
   * konwdokument.py Pomocniczy moduł do testowania
   * ksefsdk.py Główny moduł zawierający klasę KSEFSDK z funkcjonalnymi metodami
+* tests Testy unitowe
 
 # Zaimplementowane funkcjonalności
 
@@ -49,3 +50,22 @@ Należy zalogować się do aplikacji testowy za pomocą fikcyjnego NIP i w zakł
 | Pobranie UPO faktury z sesji na podstawie numeru referencyjnego faktury | [link](https://ksef-test.mf.gov.pl/docs/v2/index.html#tag/Status-wysylki-i-UPO/paths/~1api~1v2~1sessions~1%7BreferenceNumber%7D~1invoices~1%7BinvoiceReferenceNumber%7D~1upo/get) | /api/v2/sessions/{referenceNumber}/invoices/{invoiceReferenceNumber}/upo | pobierz_upo
 | Zamknięcie sesji interaktywnej | [link](https://ksef-test.mf.gov.pl/docs/v2/index.html#tag/Wysylka-interaktywna/paths/~1api~1v2~1sessions~1online~1%7BreferenceNumber%7D~1close/post) | /api/v2/auth/sessions/{referenceNumber} | close_session 
 | Unieważnienie sesji uwierzytelnienia | [link](https://ksef-test.mf.gov.pl/docs/v2/index.html#tag/Aktywne-sesje/paths/~1api~1v2~1auth~1sessions~1%7BreferenceNumber%7D/delete) | /api/v2/auth/sessions/{referenceNumber} | terminate_session
+
+# Działanie
+
+## Ogólny opis
+
+Jest to moduł napisany w Python 3. Ogólny schemat wykorzystanie
+* Utworzenie klasy KSEFSDK
+* Rozpoczęcie sesji interaktywnej (metoda open_session)
+* Wysłanie jednej lub więcej faktur oraz odczytanie wygenerowanego numeru ksef (send_invoice)
+* (Opcjonalnie) Odczytanie UPO (pobierz_upo)
+* Zamknięcie sesji interaktywnej (close_session)
+* Zamknięcie sesji uwierzytelnienia (terminate_session)
+
+## Inicjalizacja, konstruktor KSEFSDK
+
+KSEFSDK.init(env: int, nip: str, token: str)
+
+
+
