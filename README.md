@@ -63,9 +63,83 @@ Jest to moduł napisany w Python 3. Ogólny schemat wykorzystanie
 * Zamknięcie sesji interaktywnej (close_session)
 * Zamknięcie sesji uwierzytelnienia (terminate_session)
 
+Błedy (także z konstruktora klasy) są wyrzucane jako HTTPError lub ValueError. 
+
+
 ## Inicjalizacja, konstruktor KSEFSDK
 
-KSEFSDK.init(env: int, nip: str, token: str)
+*KSEFSDK.init(env: int, nip: str, token: str)*
+
+Parametry:
+* env Może przybierać trzy wartości: KSEFSDK.DEVKSEF, KSEFSDK.PREKSEF, KSEFSDK.PRODKSEF. Uwaga: testowane tylko w środowisku KSEFSDK.DEVKSEF
+* nip NIP do uwierzytelnienia
+* token Token KSeF do uwierzytleniania
+
+Działanie:
+* Inicjalizacja uwierzytelnienia
+* Pobranie publicznych certyfikatów z kluczem do szyfrowania
+* Autentykacja poprzez token KSeF
+
+Zwraca:
+
+Zainicjalizowana klasa KSEFSDK
+
+## Otworzenie sesji interaktywnej
+
+*start_session*
+
+Działanie:
+
+Rozpoczęcie sesji interaktywnej
+
+## Wysłanie faktury
+
+*send_invoice(invoice:str)*
+
+Parametry:
+* invoice Faktura do wysłania
+
+Działanie:
+
+Szyfruje i wysyła fakturę do KSeF.
+
+Zwraca:
+
+tuple[ok, error_mess, numer_ksef]
+* ok True/False, wysyłka udana lub nieudana
+* err_mess Jeśli wysyłka nieudana, to komunikat o przyczynie błędu (np. Niepoprawny format faktury)
+* numer_ksef Jeśli wysyłka udana, to numer KSeF wysłanej faktury
+
+## Odczytanie UPO
+
+*pobierz_upo*
+
+Działanie:
+
+Pobiera UPO ostatnio przesłanej faktury jeśli faktura została wysłana z sukcesem. Musi być wywołana bezpośrednio po send_invoice.
+
+Zwraca:
+
+UPO
+
+## Zamknięcie sesji interaktywnej
+
+*close_session*
+
+Działanie:
+
+Zamyka sesję interaktywną rozpoczętą wywołaniem start_session
+
+## Zamknięcie sesji uwierzytelniania
+
+*terminate_session*
+
+Działanie:
+
+Zamyka sesję uwierzytelnienia rozpoczętą w konstruktorze KSIEFSDK
+
+
+
 
 
 
