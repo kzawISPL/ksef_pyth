@@ -18,13 +18,13 @@ https://ksef-test.mf.gov.pl/docs/v2/index.html
 
 # Testowanie
 
-W module to testowania jest zawarty fikcyjny NIP oraz testowy token. Można wykorzystać ten token lub utworzyć własny. W wersji testowej nie ma gwarancji bezpieczeństwa danych, powinny być używane wyłącznie dane fikcyjne lub zanonimowane.
+W unit testach jest zawarty fikcyjny NIP oraz testowy token. Można wykorzystać ten token lub utworzyć własny. W wersji testowej nie ma gwarancji bezpieczeństwa danych, powinny być używane wyłącznie dane fikcyjne lub zanonimizowane.
 
 # Utworzenie testowego tokena
 
 https://web2te-ksef.mf.gov.pl/web/
 
-Należy zalogować się do aplikacji testowy za pomocą fikcyjnego NIP i w zakładce "Tokeny" utworzyć token ze wszystkimi uprawnieniami.
+Należy zalogować się do aplikacji testowej za pomocą fikcyjnego NIP i w zakładce "Tokeny" utworzyć token ze wszystkimi uprawnieniami.
 
 # Struktura kodu
 
@@ -120,7 +120,7 @@ Pobiera UPO ostatnio przesłanej faktury jeśli faktura została wysłana z sukc
 
 Zwraca:
 
-UPO
+UPO w postaci stringu.
 
 ## Zamknięcie sesji interaktywnej
 
@@ -128,7 +128,7 @@ UPO
 
 Działanie:
 
-Zamyka sesję interaktywną rozpoczętą wywołaniem start_session
+Zamyka sesję interaktywną rozpoczętą wywołaniem start_session.
 
 ## Zamknięcie sesji uwierzytelniania
 
@@ -136,7 +136,7 @@ Zamyka sesję interaktywną rozpoczętą wywołaniem start_session
 
 Działanie:
 
-Zamyka sesję uwierzytelnienia rozpoczętą w konstruktorze KSIEFSDK
+Zamyka sesję uwierzytelnienia rozpoczętą w konstruktorze KSIEFSDK.
 
 # Przykłady użycia
 
