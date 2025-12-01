@@ -138,8 +138,11 @@ Działanie:
 
 Zamyka sesję uwierzytelnienia rozpoczętą w konstruktorze KSIEFSDK
 
+# Przykłady użycia
 
+https://github.com/stanislawbartkowski/ksef_pyth/blob/main/test.py
 
+https://github.com/stanislawbartkowski/ksef_pyth/blob/main/tests/test1.py
 
 
 
