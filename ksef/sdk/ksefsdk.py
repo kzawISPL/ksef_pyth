@@ -43,7 +43,7 @@ class KSEFSDK:
 
     _env_dict = {
         DEVKSEF: "https://ksef-test.mf.gov.pl/api/v2/",
-        PREKSEF: "https://ksef-demo.mf.gov.pl/api/v2",
+        PREKSEF: "https://ksef-demo.mf.gov.pl/api/v2/",
         PRODKSEF: "https://ksef.mf.gov.pl/api/v2"
     }
 
@@ -87,6 +87,9 @@ class KSEFSDK:
         else:
             headers = {}
 
+        # print(f"body={body}")
+        # print(f"headers={headers}")
+
         url = self._construct_url(endpoint=endpoint)
         _l(url)
         if method == self._METHODDEL:
@@ -97,6 +100,7 @@ class KSEFSDK:
             response = requests.get(url, headers=headers)
 
         response.raise_for_status()
+
         return response
 
     def _hook(self, endpoint: str, method: int = _METHODPOST, body: dict | None = None, bearer: int = _BEARERACCESS) -> dict:
@@ -233,3 +237,21 @@ class KSEFSDK:
         end_point = f"sessions/{self._sessionreferencenumber}/invoices/{self._invoicereferencenumber}/upo"
         response = self._hook_response(endpoint=end_point, method=self._METHODGET)
         return response.text
+    
+
+    def search_incoming_invoices(self):
+        end_point = f"invoices/query/metadata"
+        payload =   {
+                                "subjectType": "Subject2",
+                                "dateRange": {
+                                "dateType": "PermanentStorage",
+                                "from": "2025-11-01T09:22:13.388+00:00",
+                                "to": "2025-11-30T09:24:13.388+00:00"
+                                },
+                                "currencyCodes": [
+                                "PLN",
+                                "EUR"
+                                ]
+                        }
+        response = self._hook(endpoint=end_point, body=payload, bearer=self._BEARERACCESS)
+        return response

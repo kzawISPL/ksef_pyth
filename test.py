@@ -3,10 +3,12 @@ from ksef import KSEFSDK
 from ksef import KONWDOKUMENT
 from tests import test_mix as T
 import datetime
+from datetime import datetime
 
 
 def KS():
-    K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=T.NIP, token=T.TOKEN)
+    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=T.NIP, token=T.TOKEN)
+    # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=T.NIP, token=T.TOKEN)
     return K
 
 
@@ -88,9 +90,21 @@ def test5():
     print(status)
 
 
+def pobierz_faktury_przychodzace(action: Callable | None = None):
+    K = KS()
+    K.start_session()
+
+    response=K.search_incoming_invoices()
+
+    print(response)
+    K.close_session()
+    K.session_terminate()
+    return response
+
 if __name__ == "__main__":
     # test2()
-    test1()
+    # test1()
     # test3()
     # test4()
-    #test5()
+    # test5()
+    pobierz_faktury_przychodzace()
