@@ -4,10 +4,19 @@ from ksef import KONWDOKUMENT
 from tests import test_mix as T
 import datetime
 from datetime import datetime
+from dotenv import load_dotenv
+import os
 
+load_dotenv()
+
+NIP   = os.getenv('NIP')
+TOKEN   = os.getenv('TOKEN_DEMO')
+
+print(f"NIP: {NIP}")
+print(f"TOKEN: {TOKEN}")
 
 def KS():
-    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=T.NIP, token=T.TOKEN)
+    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN)
     # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=T.NIP, token=T.TOKEN)
     return K
 

@@ -4,3 +4,4 @@
 *.pyc
 ksef/worktemp/
 tests/worktemp/
+.env
