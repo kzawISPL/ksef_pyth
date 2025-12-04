@@ -10,14 +10,13 @@ import os
 load_dotenv()
 
 NIP   = os.getenv('NIP')
-TOKEN   = os.getenv('TOKEN_DEMO')
+TOKEN_TEST   = os.getenv('TOKEN_TEST')
+TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
 
-print(f"NIP: {NIP}")
-print(f"TOKEN: {TOKEN}")
 
 def KS():
-    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN)
-    # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=T.NIP, token=T.TOKEN)
+    K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
+    # K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
     return K
 
 
@@ -98,14 +97,27 @@ def test5():
     status = _send_invoice(path=outpath, action=wez_upo)
     print(status)
 
+def print_dict(d, prefix=""):
+    if isinstance(d, dict):
+        for key, value in d.items():
+            print_dict(value, prefix + str(key) + ".")
+    elif isinstance(d, list):
+        for i, item in enumerate(d):
+            print_dict(item, prefix + f"[{i}].")
+    else:
+        print(f"{prefix[:-1]} = {d}")
 
-def pobierz_faktury_przychodzace(action: Callable | None = None):
+
+def pobierz_faktury_przychodzace():
     K = KS()
     K.start_session()
-
     response=K.search_incoming_invoices()
-
-    print(response)
+    # print(response['invoices'])
+    for inv in response['invoices']:
+        # print(f"KsefNumber:{inv['ksefNumber']}, Numer faktury: {inv['invoiceNumber']}, Data wystawienia: {inv['issueDate']}")
+        print("----------------------------------------------------------------")
+        print_dict(inv)
+        print("----------------------------------------------------------------")
     K.close_session()
     K.session_terminate()
     return response

@@ -42,9 +42,9 @@ class KSEFSDK:
     _BEARERACCESS = 2
 
     _env_dict = {
-        DEVKSEF: "https://ksef-test.mf.gov.pl/api/v2/",
-        PREKSEF: "https://ksef-demo.mf.gov.pl/api/v2/",
-        PRODKSEF: "https://ksef.mf.gov.pl/api/v2"
+        DEVKSEF:    "https://ksef-test.mf.gov.pl/api/v2/",
+        PREKSEF:    "https://ksef-demo.mf.gov.pl/api/v2/",
+        PRODKSEF:   "https://ksef.mf.gov.pl/api/v2"
     }
 
     @classmethod
@@ -68,9 +68,9 @@ class KSEFSDK:
             timestamp=self._timestamp,
             public_certificate=self._kseftoken_certificate
         )
-        self._referencenumber, self._authenticationtoken = self._auth_ksef_token()
+        self._referencenumber,        self._authenticationtoken = self._auth_ksef_token()
         self._session_status()
-        self._access_token, self._refresh_token = self._redeem_token()
+        self._access_token,        self._refresh_token = self._redeem_token()
         self._symmetric_key, self._iv = get_key_and_iv()
         self._sessionreferencenumber = ''
         self._sessioninvoicereferencenumber = ''
@@ -245,8 +245,8 @@ class KSEFSDK:
                                 "subjectType": "Subject2",
                                 "dateRange": {
                                 "dateType": "PermanentStorage",
-                                "from": "2025-11-01T09:22:13.388+00:00",
-                                "to": "2025-11-30T09:24:13.388+00:00"
+                                "from": "2024-01-01T09:22:13.388+00:00",
+                                "to": "2025-12-30T09:24:13.388+00:00"
                                 },
                                 "currencyCodes": [
                                 "PLN",
