@@ -242,7 +242,7 @@ class KSEFSDK:
     def search_incoming_invoices(self):
         end_point = f"invoices/query/metadata"
         payload =   {
-                                "subjectType": "Subject2",
+                                "subjectType": "Subject1",
                                 "dateRange": {
                                 "dateType": "PermanentStorage",
                                 "from": "2024-01-01T09:22:13.388+00:00",

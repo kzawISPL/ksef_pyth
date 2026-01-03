@@ -21,12 +21,12 @@ def KS():
 
 
 def _today():
-    return datetime.datetime.now().strftime("%Y-%m-%d")
+    return datetime.now().strftime("%Y-%m-%d")
 
 
 def gen_numer_faktry():
     nr = "FV"
-    data_f = datetime.datetime.now().isoformat()
+    data_f = datetime.now().isoformat()
     return nr + data_f
 
 
