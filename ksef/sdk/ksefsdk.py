@@ -239,14 +239,17 @@ class KSEFSDK:
         return response.text
     
 
-    def search_incoming_invoices(self):
+    def search_incoming_invoices(self,subjectType: str,date_from:str,date_to:str) -> dict:
+        # subjectType='Subject2'
+        # "from": "2025-12-01T09:22:13.388+00:00",
+        # "to": "2026-01-12T09:24:13.388+00:00"
         end_point = f"invoices/query/metadata"
         payload =   {
-                                "subjectType": "Subject1",
+                                "subjectType":  subjectType,
                                 "dateRange": {
-                                "dateType": "PermanentStorage",
-                                "from": "2024-01-01T09:22:13.388+00:00",
-                                "to": "2025-12-30T09:24:13.388+00:00"
+                                "dateType":     "PermanentStorage",
+                                "from":         date_from,
+                                "to":           date_to
                                 },
                                 "currencyCodes": [
                                 "PLN",
