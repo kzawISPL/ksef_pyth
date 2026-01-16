@@ -24,7 +24,7 @@ TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
 #############################################################################
 def KS():
     K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
-    #K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
+    # K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
     return K
 
 #############################################################################
@@ -140,7 +140,10 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
     is_truncated = response_json.get("isTruncated", False)
     continuation = response_json.get("continuationToken")
 
-    mapping = {"Subject1": "OUT", "Subject2": "IN"}
+    mapping = {
+                "Subject1": "OUT",
+                "Subject2": "IN"
+               }
     InOut = mapping.get(Subject_type, 0)
 
     data_od=date_from
@@ -172,11 +175,12 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
             continuation,
             json_str,
             hash_bytes
-        ))
+            )
+        )
         conn.commit()
         cursor.execute("SELECT @@IDENTITY")
         row_id = cursor.fetchone()[0]
-        print(row_id)
+        # print(row_id)
 
         return int(row_id)
     
@@ -307,14 +311,13 @@ def zapisz_pola_do_bazy(row_id: int) -> int:
 
 def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str)-> None:
 
-    response=K.search_incoming_invoices(subjectType, date_from, date_to)
-
-    id=zapisz_json_do_bazy(subjectType, date_from, date_to, response)
+    response    =   K.search_incoming_invoices(subjectType, date_from, date_to)
+    id          =   zapisz_json_do_bazy(subjectType, date_from, date_to, response)
 
     if id != -1:
         zapisz_pola_do_bazy(id)
-    # zapisz_response_do_pliku(response)
 
+    # zapisz_response_do_pliku(response)
 
     # print(response)
     # for inv in response['invoices']:
@@ -327,6 +330,46 @@ def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str)-> Non
 
 #############################################################################
 
+def pobierz_brakujace_dni() -> list[tuple[str, str]]:
+
+    cursor.execute("""
+        SELECT c.[czd_data],b.[Subject]
+        FROM [dbo].[wym_czasdzien] c
+		cross join (select 'Subject1'  as [Subject] union select 'Subject2') as b
+        LEFT JOIN KSEF.KSeF_Response r  ON r.check_date = c.[czd_data] and r.InOut=b.[Subject]
+        WHERE  c.[czd_data] < CAST(GETDATE() AS DATE) and c.[czd_data]>='2025-12-01'  AND r.id IS NULL
+        ORDER BY c.[czd_data]
+                    """)
+    
+    return [(row.czd_data, row.Subject) for row in cursor.fetchall()]
+
+#############################################################################
+
+def przetworz_dzien(subject_type: str, day: str):
+    date_from = f"{day}T00:00:00.000000+00:00"
+    date_to   = f"{day}T23:59:59.999999+00:00"
+    # print(f"Pobieranie faktur dla {subject_type} od {date_from} do {date_to}")
+    pobierz_i_zapisz_faktury(subject_type, date_from, date_to)
+
+#############################################################################
+
+def uzupelnij_brakujace_dni():
+    missing_days = pobierz_brakujace_dni()
+
+    if not missing_days:
+        print("Brak luk – baza kompletna")
+        return
+
+    print(f"Znaleziono {len(missing_days)} brakujących dni")
+
+    for day,subject in missing_days:
+        print(f"Dogrywanie dnia: {day},{subject}")
+
+        przetworz_dzien(subject, day)
+
+
+#############################################################################
+
 if __name__ == "__main__":
 
     conn = pyodbc.connect('DRIVER={SQL Server};SERVER=db.intersnack.pl;DATABASE=ross;Trusted_Connection=yes',timeout=600)
@@ -335,12 +378,17 @@ if __name__ == "__main__":
     K = KS()
     K.start_session()
 
-    pobierz_i_zapisz_faktury('Subject1',"2026-01-10T00:00:00.000000+00:00","2026-01-15T23:59:59.999999+00:00")
-    pobierz_i_zapisz_faktury('Subject2',"2026-01-13T00:00:00.000000+00:00","2026-01-13T23:59:59.999999+00:00")
+    uzupelnij_brakujace_dni()
+    # pobierz_i_zapisz_faktury('Subject1',"2026-01-20T00:00:00.000000+00:00","2026-01-25T23:59:59.999999+00:00")
+    # pobierz_i_zapisz_faktury('Subject2',"2026-01-23T00:00:00.000000+00:00","2026-01-23T23:59:59.999999+00:00")
 
     K.close_session()
     K.session_terminate()
 
     cursor.close()
     conn.close()
+
+
+    # do przerobie tak ze japierw pobieramy wszystko np 0d 1 stycz do 31 stycz w jednym requescie data_od='2026-01-01', dataa_do='2026-01-31' potem sprawdzamy ostatni potwierdzony i 
+    # wiarygodny checpoint (w tym wypdaku 31 stycznia i od nastepnego dnia pobieramy wszystko do dziasiaj. Lepsze niz rozwiazanie dzien po dniu bo jednym requestem łatamy ewentualne dziury    )
     
