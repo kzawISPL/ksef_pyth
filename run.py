@@ -16,6 +16,11 @@ load_dotenv()
 
 #############################################################################
 
+conn = pyodbc.connect('DRIVER={SQL Server};SERVER=db.intersnack.pl;DATABASE=ross;Trusted_Connection=yes',timeout=600)
+cursor = conn.cursor()
+
+#############################################################################
+
 NIP   = os.getenv('NIP')
 TOKEN_TEST   = os.getenv('TOKEN_TEST')
 TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
@@ -23,8 +28,8 @@ TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
 
 #############################################################################
 def KS():
-    K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
-    # K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
+    # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
+    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
     return K
 
 #############################################################################
@@ -106,6 +111,50 @@ def test5():
     print(status)
 
 #############################################################################
+
+
+def test6():
+    # PRZYKLAD 6: Pobierz istniejącą fakturę
+    K = KS()
+    faktura_ksef = "7497725064-20251207-0100A07C1B9B-7C"
+    print(f"Pobierz fakturę o numerze: {faktura_ksef}")
+    faktura = K.get_invoice(ksef_number=faktura_ksef)
+    print(faktura)
+    K.session_terminate()
+
+#############################################################################
+def test7():
+    K = KS_NABYWCA()
+    outpath = _prepare_invoice(patt=T.PRZYKLAD_ZAKUP_8)
+    status = _send_invoice_K(K, path=outpath)
+    print(status)
+    ok, errmess, numer_ksef = status
+
+#############################################################################
+def test8():
+    K = KS()
+    res = K.get_invoices_zakupowe_metadata(
+        date_from="2025-11-01", date_to="2025-12-31")
+    print(res)
+    K.session_terminate()
+
+#############################################################################
+def test9():
+    K = KS()
+    b = b'111111111'
+    K.send_batch_session_bytes(payload=[b])
+    K.session_terminate()
+
+#############################################################################
+def test10():
+    K = T.KS_CERT()
+    res = K.get_invoices_zakupowe_metadata(
+        date_from="2025-12-21", date_to="2025-12-31")
+    print(res)
+    K.session_terminate()
+
+
+#############################################################################
 def print_dict(d, prefix="")-> None:
     if isinstance(d, dict):
         for key, value in d.items():
@@ -118,14 +167,14 @@ def print_dict(d, prefix="")-> None:
 
 #############################################################################
 
-def zapisz_response_do_pliku(response, filename_prefix="ksef_response")-> None:
-    output_dir = Path("ksef_responses")
-    output_dir.mkdir(exist_ok=True)
+# def zapisz_response_do_pliku(response, filename_prefix="ksef_response")-> None:
+#     output_dir = Path("ksef_responses")
+#     output_dir.mkdir(exist_ok=True)
 
-    filename = f"ksef_response_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json"
+#     filename = f"ksef_response_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.json"
 
-    with open(output_dir / filename, "w", encoding="utf-8") as f:
-        json.dump(response, f, ensure_ascii=False, indent=2)
+#     with open(output_dir / filename, "w", encoding="utf-8") as f:
+#         json.dump(response, f, ensure_ascii=False, indent=2)
 
 #############################################################################
 
@@ -333,11 +382,11 @@ def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str)-> Non
 def pobierz_brakujace_dni() -> list[tuple[str, str]]:
 
     cursor.execute("""
-        SELECT c.[czd_data],b.[Subject]
+        SELECT  c.[czd_data],b.[Subject],b.INOUT
         FROM [dbo].[wym_czasdzien] c
-		cross join (select 'Subject1'  as [Subject] union select 'Subject2') as b
-        LEFT JOIN KSEF.KSeF_Response r  ON r.check_date = c.[czd_data] and r.InOut=b.[Subject]
-        WHERE  c.[czd_data] < CAST(GETDATE() AS DATE) and c.[czd_data]>='2025-12-01'  AND r.id IS NULL
+		cross join (select 'Subject1'  as [Subject],'OUT' as INOUT union select 'Subject2','IN' as INOUT) as b
+        LEFT JOIN KSEF.KSeF_Response r  ON r.check_date = c.[czd_data] and r.InOut=b.INOUT 
+        WHERE  c.[czd_data] < CAST(GETDATE() AS DATE) and c.[czd_data]>='2026-01-01'  AND r.id IS NULL
         ORDER BY c.[czd_data]
                     """)
     
@@ -370,16 +419,19 @@ def uzupelnij_brakujace_dni():
 
 #############################################################################
 
+
+
 if __name__ == "__main__":
 
-    conn = pyodbc.connect('DRIVER={SQL Server};SERVER=db.intersnack.pl;DATABASE=ross;Trusted_Connection=yes',timeout=600)
-    cursor = conn.cursor()
+    
+
 
     K = KS()
     K.start_session()
 
     uzupelnij_brakujace_dni()
-    # pobierz_i_zapisz_faktury('Subject1',"2026-01-20T00:00:00.000000+00:00","2026-01-25T23:59:59.999999+00:00")
+
+    # pobierz_i_zapisz_faktury('Subject1',"2026-01-02T00:00:00.000000+00:00","2026-01-25T23:59:59.999999+00:00")
     # pobierz_i_zapisz_faktury('Subject2',"2026-01-23T00:00:00.000000+00:00","2026-01-23T23:59:59.999999+00:00")
 
     K.close_session()
