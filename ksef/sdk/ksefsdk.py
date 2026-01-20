@@ -243,22 +243,23 @@ class KSEFSDK:
         return response.text
     
 
-    def search_incoming_invoices(self,subjectType: str,date_from:str,date_to:str) -> dict:
-        # subjectType='Subject2'
-        # "from": "2025-12-01T09:22:13.388+00:00",
-        # "to": "2026-01-12T09:24:13.388+00:00"
-        end_point = f"invoices/query/metadata"
+    def search_incoming_invoices(self,subjectType: str,date_from:str,date_to:str, page_size:int, offset:int) -> dict:
+        end_point   = f"invoices/query/metadata"
+        end_point   +=f"?pageSize={page_size}&pageOffset={offset}"
         payload =   {
-                                "subjectType":  subjectType,
-                                "dateRange": {
-                                "dateType":     "PermanentStorage",
-                                "from":         date_from,
-                                "to":           date_to
-                                },
-                                "currencyCodes": [
-                                "PLN",
-                                "EUR"
-                                ]
-                        }
+                                        "subjectType":  subjectType,
+                                        "dateRange": {
+                                        "dateType":     "PermanentStorage",
+                                        "from":         date_from,
+                                        "to":           date_to
+                                        },
+                                        "currencyCodes": [
+                                        "PLN",
+                                        "EUR"
+                                        ]
+                                                              
+                    }
+        # print(payload,end_point)
         response = self._hook(endpoint=end_point, body=payload, bearer=self._BEARERACCESS)
+       
         return response
