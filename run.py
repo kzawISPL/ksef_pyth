@@ -3,7 +3,7 @@ from ksef import KSEFSDK
 from ksef import KONWDOKUMENT
 from tests import test_mix as T
 # import datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 from dotenv import load_dotenv
 import os
 import json
@@ -176,7 +176,7 @@ def print_dict(d, prefix="")-> None:
 #############################################################################
 
 
-#############################################################################
+
 
 def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str, pageSize:int)-> None:
 
@@ -208,7 +208,7 @@ def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str, pageS
 
     # return response
 
-
+#############################################################################
 
 def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, response_json: Dict[str, Any], page_size, offset) -> int:
 
@@ -219,11 +219,15 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
     hash_bytes = hashlib.sha256(json_str.encode("utf-8")).digest()
     has_more = response_json.get("hasMore", False)
     is_truncated = response_json.get("isTruncated", False)
-    continuation = response_json.get("continuationToken")
+  
     ile_faktur= len(response_json.get("invoices", []))
     pageSize= page_size
     offset= offset
 
+    dt_from = datetime.fromisoformat(date_from)
+    dt_from_sql = dt_from.astimezone(timezone.utc).replace(tzinfo=None)
+    dt_to = datetime.fromisoformat(date_to)
+    dt_to_sql = dt_to.astimezone(timezone.utc).replace(tzinfo=None)
 
     mapping = {
                 "Subject1": "OUT",
@@ -231,21 +235,15 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
                }
     InOut = mapping.get(Subject_type, 0)
 
-    data_od=date_from
-    data_do=date_to
-    check_date = data_do[:10]
-
     try:
         cursor.execute("""
             INSERT INTO KSEF.KSeF_Response (
-                InOut,                data_od,                data_do,                check_date,           received_at,            has_more,
-                is_truncated,         continuation,           ile_faktur,                pageSize,             offset,                 response_json,
-                response_hash
+                InOut,  data_od_str,    data_do_str,    data_od,    data_do ,       InsertDate,            has_more,                is_truncated,    
+                ile_faktur,                pageSize,             offset,                 response_json,                response_hash
             ) VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            InOut,              data_od,            data_do,            check_date,         datetime.now(),     has_more,
-            is_truncated,       continuation,       ile_faktur,            pageSize,           offset,            json_str,
-            hash_bytes
+                    """, (
+            InOut,              date_from,            date_to,      dt_from_sql,        dt_to_sql ,   datetime.now(),     has_more,            is_truncated,  
+            ile_faktur,            pageSize,           offset,            json_str,            hash_bytes
             )
         )
         conn.commit()
@@ -263,9 +261,6 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
 #############################################################################
 
 def zapisz_pola_do_bazy(row_id: int) -> int:
-    """
-    Zapisuje wybrane pola faktury do bazy SQL Server
-    """
 
     def to_sqlserver_datetime(dt_str: str) -> str:
         """
@@ -359,15 +354,12 @@ def zapisz_pola_do_bazy(row_id: int) -> int:
 
 def pobierz_brakujace_dni() -> list[tuple[str, str]]:
     """
-    Wyczytuje maksymalna date z pola check_date dla IN i OUT i zwraca liste brakujacych dni do dzisiaj
+    Wyczytuje czas ostatniego sprawdzenia i w wyniku zwraca zakres od tego momentu do teraz do sprawdzenia
     """
-
     cursor.execute("""
                     with maks as
                     (
-                    select max(a.[check_date]) as maks_data,a.[InOut]
-                    FROM [Ross].[KSEF].[KSeF_Response] as a
-                    group by a.[InOut]
+                    select max(a.[data_do]) as maks_data,a.[InOut] FROM [Ross].[KSEF].[KSeF_Response] as a     group by a.[InOut]
                     ),
                     crooss as
                     (
@@ -376,26 +368,30 @@ def pobierz_brakujace_dni() -> list[tuple[str, str]]:
                     select 'Subject2','IN' as INOUT
                     )
                     SELECT
-                    isnull(maks.maks_data,'2025-12-01') as czd_data,crooss.[Subject],crooss.INOUT 
+                    isnull(DATEADD(nanosecond, 1000, maks.maks_data),'2025-12-01 00:00:00.0000000') as od,
+                    cast(getdate() as datetime2(7)) as do ,
+                    crooss.[Subject],crooss.INOUT 
                     from crooss
                     left join maks on crooss.INOUT=maks.InOut
                     """)
     
-    return [(row.czd_data, row.Subject) for row in cursor.fetchall()]
+    return [(row.od, row.do, row.Subject) for row in cursor.fetchall()]
 
 #############################################################################
 
-def przetworz_dzien(subject_type: str, day: str, pageSize:int)-> None:
+def przetworz_dzien(subject_type: str, day_from: str, day_to:str, pageSize:int)-> None:
 
-    new_day_from = datetime.strptime(str(day), "%Y-%m-%d").date()
-    new_day_from1 = new_day_from + timedelta(days=1)
-    day_from    = new_day_from1.strftime("%Y-%m-%d")   
+    dt_from     = datetime.fromisoformat(day_from)
+    dt_to       = datetime.fromisoformat(day_to)
 
-    yesterday = datetime.now() - timedelta(days=1)
-    yesterday_str = yesterday.strftime("%Y-%m-%d")  
-    
-    date_from = f"{day_from}T00:00:00.000000+00:00"
-    date_to   = f"{yesterday_str}T23:59:59.999999+00:00"
+    def sql_datetime2_to_iso(dt_sql: datetime) -> str:
+        if dt_sql.tzinfo is not None:
+            raise ValueError("Expected naive datetime from datetime2")
+        return dt_sql.replace(tzinfo=timezone.utc).isoformat()
+
+    date_from   = sql_datetime2_to_iso(dt_from)
+    date_to     = sql_datetime2_to_iso(dt_to)
+
     print(f"Pobieranie faktur dla {subject_type} od {date_from} do {date_to}")
 
 
@@ -404,16 +400,15 @@ def przetworz_dzien(subject_type: str, day: str, pageSize:int)-> None:
 #############################################################################
 
 def uzupelnij_brakujace_dni(pageSize:int=250)-> None:
+
     missing_days = pobierz_brakujace_dni()
 
     if not missing_days:
         print("Brak luk – baza kompletna")
         return
 
-    print(f"Znaleziono {len(missing_days)} brakujących dni")
-
-    for day,subject in missing_days:
-        przetworz_dzien(subject, day,pageSize=pageSize)
+    for day_from, day_to, subject in missing_days:
+        przetworz_dzien(subject, str(day_from), str(day_to), pageSize=pageSize)
 
 
 #############################################################################
@@ -432,23 +427,5 @@ if __name__ == "__main__":
 
     cursor.close()
     conn.close()
-
-
-
-    # cursor.execute(""" SELECT response_json    FROM KSEF.KSeF_Response  WHERE id = 1""")
-    # row = cursor.fetchone()
-    # if not row:
-    #     raise ValueError(f"Brak rekordu KSeF_Response o id=1")
-    # response_json = json.loads(row.response_json)
-
-    # for invoice in response_json.get("invoices", []):
-    # #     # print(f"KsefNumber:{inv['ksefNumber']}, Numer faktury: {inv['invoiceNumber']}, Data wystawienia: {inv['issueDate']}")
-    #     print("----------------------------------------------------------------")
-    #     # print_dict(invoice)
-    #     print(   invoice.get("seller", {}).get("name", "BRAK")       )
-    #     print("----------------------------------------------------------------")
-
-    # cursor.close()
-    # conn.close()
 
 
