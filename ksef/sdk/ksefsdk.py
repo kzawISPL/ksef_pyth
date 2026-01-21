@@ -252,11 +252,7 @@ class KSEFSDK:
                                         "dateType":     "PermanentStorage",
                                         "from":         date_from,
                                         "to":           date_to
-                                        },
-                                        "currencyCodes": [
-                                        "PLN",
-                                        "EUR"
-                                        ]
+                                                }
                                                               
                     }
         # print(payload,end_point)
