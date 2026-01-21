@@ -2,7 +2,6 @@ from typing import Callable
 from ksef import KSEFSDK
 from ksef import KONWDOKUMENT
 from tests import test_mix as T
-# import datetime
 from datetime import datetime, timedelta,timezone
 from dotenv import load_dotenv
 import os
@@ -28,8 +27,8 @@ TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
 
 #############################################################################
 def KS():
-    # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
-    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
+    K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
+    # K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
     return K
 
 #############################################################################
