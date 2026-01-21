@@ -181,7 +181,6 @@ def print_dict(d, prefix="")-> None:
 def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str, pageSize:int)-> None:
 
     offset = 0
-    # page_size = pageSize
 
     while True:
         
@@ -397,7 +396,7 @@ def przetworz_dzien(subject_type: str, day: str, pageSize:int)-> None:
     
     date_from = f"{day_from}T00:00:00.000000+00:00"
     date_to   = f"{yesterday_str}T23:59:59.999999+00:00"
-    # print(f"Pobieranie faktur dla {subject_type} od {date_from} do {date_to}")
+    print(f"Pobieranie faktur dla {subject_type} od {date_from} do {date_to}")
 
 
     pobierz_i_zapisz_faktury(subject_type, date_from, date_to, pageSize)
@@ -414,8 +413,6 @@ def uzupelnij_brakujace_dni(pageSize:int=250)-> None:
     print(f"Znaleziono {len(missing_days)} brakujących dni")
 
     for day,subject in missing_days:
-        print(f"Dogrywanie dnia: {day},{subject}\n")
-
         przetworz_dzien(subject, day,pageSize=pageSize)
 
 
