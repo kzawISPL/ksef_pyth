@@ -10,6 +10,7 @@ from pathlib import Path
 import hashlib
 import pyodbc
 from typing import Dict, Any, Optional
+from zoneinfo import ZoneInfo
 
 load_dotenv()
 
@@ -27,8 +28,9 @@ TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
 
 #############################################################################
 def KS():
-    K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
-    # K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
+    # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
+    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
+    # K = KSEFSDK.initsdk(KSEFSDK.PRODKSEF, nip=NIP, token=TOKEN_PROD)
     return K
 
 #############################################################################
@@ -381,20 +383,19 @@ def pobierz_brakujace_dni() -> list[tuple[str, str]]:
 def przetworz_dzien(subject_type: str, day_from: str, day_to:str, pageSize:int)-> None:
 
     dt_from     = datetime.fromisoformat(day_from)
+    dt_from_local = dt_from.replace(tzinfo=ZoneInfo("Europe/Warsaw"))
     dt_to       = datetime.fromisoformat(day_to)
+    dt_to_local = dt_to.replace(tzinfo=ZoneInfo("Europe/Warsaw"))
 
-    def sql_datetime2_to_iso(dt_sql: datetime) -> str:
-        if dt_sql.tzinfo is not None:
-            raise ValueError("Expected naive datetime from datetime2")
-        return dt_sql.replace(tzinfo=timezone.utc).isoformat()
+  
 
-    date_from   = sql_datetime2_to_iso(dt_from)
-    date_to     = sql_datetime2_to_iso(dt_to)
+    date_from_UTC   = dt_from_local.astimezone(timezone.utc).isoformat()
+    date_to_UTC     = dt_to_local.astimezone(timezone.utc).isoformat()
 
-    print(f"Pobieranie faktur dla {subject_type} od {date_from} do {date_to}")
+    print(f"Pobieranie faktur dla {subject_type} od {date_from_UTC} do {date_to_UTC}")
 
 
-    pobierz_i_zapisz_faktury(subject_type, date_from, date_to, pageSize)
+    pobierz_i_zapisz_faktury(subject_type, str(date_from_UTC), str(date_to_UTC), pageSize)
 
 #############################################################################
 
