@@ -44,7 +44,7 @@ class KSEFSDK:
     _env_dict = {
         DEVKSEF:    "https://api-test.ksef.mf.gov.pl/v2/",
         PREKSEF:    "https://api-demo.ksef.mf.gov.pl/v2/",
-        PRODKSEF:   "https://ksef.mf.gov.pl/api/v2/"
+        PRODKSEF:   "https://api.ksef.mf.gov.pl/api/v2/"
         # DEVKSEF:    "https://ksef-test.mf.gov.pl/api/v2/",
         # PREKSEF:    "https://ksef-demo.mf.gov.pl/api/v2/",
         # PRODKSEF:   "https://ksef.mf.gov.pl/api/v2"
