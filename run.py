@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import hashlib
 import pyodbc
-from typing import Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional
 from zoneinfo import ZoneInfo
 
 load_dotenv()
@@ -21,9 +21,10 @@ cursor = conn.cursor()
 
 #############################################################################
 
-NIP   = os.getenv('NIP')
+NIP          = os.getenv('NIP')
 TOKEN_TEST   = os.getenv('TOKEN_TEST')
 TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
+TOKEN_PROD   = os.getenv('TOKEN_PROD')
 
 
 #############################################################################
@@ -185,10 +186,11 @@ def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str, pageS
 
     while True:
         
-        response    = K.search_incoming_invoices(subjectType, date_from, date_to, pageSize, offset)
-        id          = zapisz_json_do_bazy(subjectType, date_from, date_to, response, pageSize, offset)
-        if id != -1:
-            zapisz_pola_do_bazy(id)
+        response                            = K.search_incoming_invoices(subjectType, date_from, date_to, pageSize, offset)
+        row_id, permanentStorageHwmDate_sql     = zapisz_json_do_bazy(subjectType, date_from, date_to, response, pageSize, offset)
+
+        if row_id != -1:
+            zapisz_pola_do_bazy(row_id,permanentStorageHwmDate_sql)
 
         if response.get("isTruncated") is True:
             # przerwij i zawęż kryteria zapytania
@@ -211,7 +213,7 @@ def pobierz_i_zapisz_faktury(subjectType: str, date_from:str, date_to:str, pageS
 
 #############################################################################
 
-def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, response_json: Dict[str, Any], page_size, offset) -> int:
+def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, response_json: Dict[str, Any], page_size, offset) -> Tuple[int, Optional[datetime]]:
 
     """
     Zapisuje pojedynczy JSON do bazy SQL Server
@@ -220,10 +222,16 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
     hash_bytes = hashlib.sha256(json_str.encode("utf-8")).digest()
     has_more = response_json.get("hasMore", False)
     is_truncated = response_json.get("isTruncated", False)
-  
+
+
     ile_faktur= len(response_json.get("invoices", []))
     pageSize= page_size
     offset= offset
+
+    permanentStorageHwmDate_str = response_json.get("permanentStorageHwmDate", None)
+
+    permanentStorageHwmDate = datetime.fromisoformat(permanentStorageHwmDate_str)
+    permanentStorageHwmDate_sql = permanentStorageHwmDate.astimezone(timezone.utc).replace(tzinfo=None)
 
     dt_from = datetime.fromisoformat(date_from)
     dt_from_sql = dt_from.astimezone(timezone.utc).replace(tzinfo=None)
@@ -240,37 +248,58 @@ def zapisz_json_do_bazy(Subject_type: str, date_from: str, date_to: str, respons
         cursor.execute("""
             INSERT INTO KSEF.KSeF_Response (
                 InOut,  data_od_str,    data_do_str,    data_od,    data_do ,       InsertDate,            has_more,                is_truncated,    
-                ile_faktur,                pageSize,             offset,                 response_json,                response_hash
-            ) VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ile_faktur,                pageSize,             offset,                 response_json,                response_hash,   permanentStorageHwmDate_str, permanentStorageHwmDate
+                )           
+                    OUTPUT INSERTED.ID 
+                    VALUES (?, ? , ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
-            InOut,              date_from,            date_to,      dt_from_sql,        dt_to_sql ,   datetime.now(),     has_more,            is_truncated,  
-            ile_faktur,            pageSize,           offset,            json_str,            hash_bytes
+            InOut,        date_from,       date_to,      dt_from_sql,        dt_to_sql ,   datetime.now(),     has_more,            is_truncated,  
+            ile_faktur,   pageSize,           offset,            json_str,            hash_bytes,  permanentStorageHwmDate_str, permanentStorageHwmDate_sql
             )
         )
-        conn.commit()
-        cursor.execute("SELECT @@IDENTITY")
-        row_id = cursor.fetchone()[0]
-        # print(row_id)
 
-        return int(row_id)
+        row_id = cursor.fetchone()[0]
+        conn.commit()
+        # conn.commit()
+        # cursor.execute("SELECT SCOPE_IDENTITY()")
+        # row = cursor.fetchone()
+        # row_id = row[0] if row and row[0] is not None else None
+
+        if row_id is None:
+            print("row_id raw:", row_id, type(row_id))  
+            raise RuntimeError("Nie udało się pobrać ID rekordu KSeF_Response")
+            
+
+        return int(row_id),permanentStorageHwmDate_sql
     
     except Exception as e:
         print(f"Error saving to database: {e}")
         conn.rollback()
-        return -1
+        return -1, None
     
 #############################################################################
 
-def zapisz_pola_do_bazy(row_id: int) -> int:
+def zapisz_pola_do_bazy(row_id: int,permanentStorageHwmDate_sql: datetime) -> int:
 
     def to_sqlserver_datetime(dt_str: str) -> str:
-        """
-        Konwertuje:        2026-01-13T12:13:17.866827+00:00        -> 2026-01-13 12:13:17
-        """
+        """        Konwertuje:        2026-01-13T12:13:17.866827+00:00        -> 2026-01-13 12:13:17.866827        """
         if not dt_str:
             return None
+       
+        dt = datetime.fromisoformat(dt_str)
+       
+        result = dt.strftime("%Y-%m-%d %H:%M:%S.%f")
+        return result     
+    
+    def date_str_to_datetime(dt_str: str) -> datetime:
 
-        return dt_str.replace("T", " ")[:19]
+        if not dt_str:
+            return None
+       
+        dt = datetime.fromisoformat(dt_str)
+        dt_dt=dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt_dt
+
 
     try:
         # 1. Pobranie response_json
@@ -280,6 +309,8 @@ def zapisz_pola_do_bazy(row_id: int) -> int:
             raise ValueError(f"Brak rekordu KSeF_Response o id={row_id}")
 
         response_json = json.loads(row.response_json)
+
+
 
         # 2. Lista faktur (zmień klucz jeśli inny)
         invoices = response_json.get("invoices", [])
@@ -301,6 +332,11 @@ def zapisz_pola_do_bazy(row_id: int) -> int:
         inserted = 0
 
         for inv in invoices:
+
+            if date_str_to_datetime(inv["permanentStorageDate"])   >   permanentStorageHwmDate_sql:
+                # Pomijaj faktury z datą większą niż permanentStorageHwmDate
+                continue
+
             cursor.execute(insert_sql, (
                 row_id,
                 inv["ksefNumber"],
@@ -348,7 +384,8 @@ def zapisz_pola_do_bazy(row_id: int) -> int:
     
     except Exception as e:
         print(f"Error saving invoice to database: {e}")
-        conn.rollback()        
+        conn.rollback()   
+        return -1     
 
 
 #############################################################################
@@ -360,7 +397,9 @@ def pobierz_brakujace_dni() -> list[tuple[str, str]]:
     cursor.execute("""
                     with maks as
                     (
-                    select max(a.[data_do]) as maks_data,a.[InOut] FROM [Ross].[KSEF].[KSeF_Response] as a     group by a.[InOut]
+                    select max(a.[permanentStorageHwmDate]) as maks_data, a.[InOut] 
+                    FROM [Ross].[KSEF].[KSeF_Response] as a     
+                    group by a.[InOut]
                     ),
                     crooss as
                     (
@@ -368,8 +407,10 @@ def pobierz_brakujace_dni() -> list[tuple[str, str]]:
                     union 
                     select 'Subject2','IN' as INOUT
                     )
+                   
                     SELECT
-                    isnull(DATEADD(nanosecond, 1000, maks.maks_data),'2025-12-01 00:00:00.0000000') as od,
+                    isnull(maks.maks_data,'2025-12-01 00:00:00.0000000') as od,
+                    --isnull(DATEADD(nanosecond, 1000, maks.maks_data),'2025-12-01 00:00:00.0000000') as od,
                     cast(getdate() as datetime2(7)) as do ,
                     crooss.[Subject],crooss.INOUT 
                     from crooss
@@ -383,13 +424,12 @@ def pobierz_brakujace_dni() -> list[tuple[str, str]]:
 def przetworz_dzien(subject_type: str, day_from: str, day_to:str, pageSize:int)-> None:
 
     dt_from     = datetime.fromisoformat(day_from)
-    dt_from_local = dt_from.replace(tzinfo=ZoneInfo("Europe/Warsaw"))
     dt_to       = datetime.fromisoformat(day_to)
+
+    dt_from_local = dt_from.replace(tzinfo=ZoneInfo("UTC"))
     dt_to_local = dt_to.replace(tzinfo=ZoneInfo("Europe/Warsaw"))
 
-  
-
-    date_from_UTC   = dt_from_local.astimezone(timezone.utc).isoformat()
+    date_from_UTC   = dt_from_local.isoformat()
     date_to_UTC     = dt_to_local.astimezone(timezone.utc).isoformat()
 
     print(f"Pobieranie faktur dla {subject_type} od {date_from_UTC} do {date_to_UTC}")
@@ -410,7 +450,6 @@ def uzupelnij_brakujace_dni(pageSize:int=250)-> None:
     for day_from, day_to, subject in missing_days:
         przetworz_dzien(subject, str(day_from), str(day_to), pageSize=pageSize)
 
-
 #############################################################################
 
 
@@ -420,6 +459,7 @@ if __name__ == "__main__":
     K = KS()
     K.start_session()
 
+    # test5()
     uzupelnij_brakujace_dni()
     
     K.close_session()
