@@ -26,7 +26,6 @@ TOKEN_TEST   = os.getenv('TOKEN_TEST')
 TOKEN_DEMO   = os.getenv('TOKEN_DEMO')
 TOKEN_PROD   = os.getenv('TOKEN_PROD')
 
-
 #############################################################################
 def KS():
     # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
