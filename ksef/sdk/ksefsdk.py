@@ -193,6 +193,7 @@ class KSEFSDK:
         response = self._hook(endpoint="sessions/online", body=request_data)
         self._sessionreferencenumber = response["referenceNumber"]
 
+
     def _invoice_status(self) -> tuple[bool, str, str]:
         end_point = f'sessions/{self._sessionreferencenumber}/invoices/{self._sessioninvoicereferencenumber}'
         sleep_time = 2

@@ -30,8 +30,8 @@ TOKEN_PROD   = os.getenv('TOKEN_PROD')
 #############################################################################
 def KS():
     # K = KSEFSDK.initsdk(KSEFSDK.DEVKSEF, nip=NIP, token=TOKEN_TEST)
-    K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
-    # K = KSEFSDK.initsdk(KSEFSDK.PRODKSEF, nip=NIP, token=TOKEN_PROD)
+    # K = KSEFSDK.initsdk(KSEFSDK.PREKSEF, nip=NIP, token=TOKEN_DEMO)
+    K = KSEFSDK.initsdk(KSEFSDK.PRODKSEF, nip=NIP, token=TOKEN_PROD)
     return K
 
 #############################################################################
@@ -426,6 +426,9 @@ def przetworz_dzien(subject_type: str, day_from: str, day_to:str, pageSize:int)-
     dt_from     = datetime.fromisoformat(day_from)
     dt_to       = datetime.fromisoformat(day_to)
 
+    # dt_from     = datetime.fromisoformat('2025-09-01 00:00:00.0000000')
+    # dt_to       = datetime.fromisoformat('2025-12-01 00:00:00.0000000')
+
     dt_from_local = dt_from.replace(tzinfo=ZoneInfo("UTC"))
     dt_to_local = dt_to.replace(tzinfo=ZoneInfo("Europe/Warsaw"))
 
@@ -457,12 +460,9 @@ def uzupelnij_brakujace_dni(pageSize:int=250)-> None:
 if __name__ == "__main__":
 
     K = KS()
-    K.start_session()
-
-    # test5()
+    # K.start_session()
     uzupelnij_brakujace_dni()
-    
-    K.close_session()
+    # K.close_session()
     K.session_terminate()
 
     cursor.close()
